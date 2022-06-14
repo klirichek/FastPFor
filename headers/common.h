@@ -10,7 +10,12 @@
 // C headers (sorted)
 #include <errno.h>
 #include <fcntl.h>
+#if defined(USE_SIMDE)
+#include <arm_neon.h>
+#define __m128i int64x2_t
+#else
 #include <immintrin.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
