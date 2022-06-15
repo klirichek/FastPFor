@@ -11,8 +11,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #if defined(USE_SIMDE)
-#include <arm_neon.h>
-#define __m128i int64x2_t
+#define SIMDE_ENABLE_NATIVE_ALIASES 1
+#include <simde/x86/sse4.1.h>
 #else
 #include <immintrin.h>
 #endif

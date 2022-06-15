@@ -145,6 +145,14 @@ public:
     return offset ? (sizeof(__m128i) - offset) : 0;
   }
 
+  template <uint8_t N, uint8_t K = 1>
+  inline static __m128i unrolledPacking_N(__m128i res, const __m128i *&in) {
+    constexpr unsigned b = 32 / N;
+    if constexpr (K < N)
+      res = unrolledPacking_N<N, K + 1>(_mm_or_si128(res, _mm_slli_epi32(_mm_load_si128(in++), K * b)), in);
+    return res;
+  }
+
   /**
    * This function is used to compress the n quads, i.e. 4x n integers, in the
    * last input block, if that last block is not "full". Note that this
@@ -155,12 +163,45 @@ public:
                                           __m128i *&out) {
     // Since we have to produce exactly one compressed vector anyway, we can
     // use the highest bit width allowing us to pack all n values.
-    const unsigned b = 32 / n;
-    __m128i comprBlock = _mm_load_si128(in++);
-    for (size_t k = 1; k < n; k++)
-      comprBlock = _mm_or_si128(comprBlock,
-                                _mm_slli_epi32(_mm_load_si128(in++), k * b));
-    _mm_store_si128(out++, comprBlock);
+    __m128i res = _mm_load_si128(in++);
+    res = [&] () {
+      switch (n) {
+      case 2: return unrolledPacking_N<2>(res, in);
+      case 3: return unrolledPacking_N<3>(res, in);
+      case 4: return unrolledPacking_N<4>(res, in);
+      case 5: return unrolledPacking_N<5>(res, in);
+      case 6: return unrolledPacking_N<6>(res, in);
+      case 7: return unrolledPacking_N<7>(res, in);
+      case 8: return unrolledPacking_N<8>(res, in);
+      case 9: return unrolledPacking_N<9>(res, in);
+      case 10: return unrolledPacking_N<10>(res, in);
+      case 11: return unrolledPacking_N<11>(res, in);
+      case 12: return unrolledPacking_N<12>(res, in);
+      case 13: return unrolledPacking_N<13>(res, in);
+      case 14: return unrolledPacking_N<14>(res, in);
+      case 15: return unrolledPacking_N<15>(res, in);
+      case 16: return unrolledPacking_N<16>(res, in);
+      case 17: return unrolledPacking_N<17>(res, in);
+      case 18: return unrolledPacking_N<18>(res, in);
+      case 19: return unrolledPacking_N<19>(res, in);
+      case 20: return unrolledPacking_N<20>(res, in);
+      case 21: return unrolledPacking_N<21>(res, in);
+      case 22: return unrolledPacking_N<22>(res, in);
+      case 23: return unrolledPacking_N<23>(res, in);
+      case 24: return unrolledPacking_N<24>(res, in);
+      case 25: return unrolledPacking_N<25>(res, in);
+      case 26: return unrolledPacking_N<26>(res, in);
+      case 27: return unrolledPacking_N<27>(res, in);
+      case 28: return unrolledPacking_N<28>(res, in);
+      case 29: return unrolledPacking_N<29>(res, in);
+      case 30: return unrolledPacking_N<30>(res, in);
+      case 31: return unrolledPacking_N<31>(res, in);
+      case 32: return unrolledPacking_N<32>(res, in);
+      default:
+        return res;
+      }
+    } ();
+    _mm_store_si128(out++, res);
   }
 
   /**
@@ -341,22 +382,64 @@ public:
     _mm_store_si128(out++, res);
   }
 
+  template <uint8_t N, uint8_t K = 0>
+  inline static void unrolledUnpacking_N(__m128i comprBlock, __m128i *&out, const __m128i mask) {
+    // We choose the bit width consistent with comprIncompleteBlock().
+    constexpr unsigned b = 32 / N;
+    if constexpr (K < N)
+    {
+      _mm_store_si128(out++, _mm_and_si128(_mm_srli_epi32(comprBlock, K * b), mask));
+      unrolledUnpacking_N<N,K+1> (comprBlock,out,mask);
+    }
+  }
+
   /**
-   * This function is used to decompress the n quads, i.e. 4x n integers, in
-   * the last input block, if that last block is not "full". Note that this
-   * function is called at most once per array to decompress. Hence, top
+   * This function is used to compress the n quads, i.e. 4x n integers, in the
+   * last input block, if that last block is not "full". Note that this
+   * function is called at most once per array to compress. Hence, top
    * efficiency is not that crucial here.
    */
-  inline static void decomprIncompleteBlock(const uint8_t &n,
-                                            const __m128i *&in,
-                                            __m128i *&out) {
+  inline static void decomprIncompleteBlock(const uint8_t &n, const __m128i *&in,
+                                          __m128i *&out) {
     // We choose the bit width consistent with comprIncompleteBlock().
     const unsigned b = 32 / n;
     const __m128i mask = _mm_set1_epi32((static_cast<uint64_t>(1) << b) - 1);
     const __m128i comprBlock = _mm_load_si128(in++);
-    for (size_t k = 0; k < n; k++)
-      _mm_store_si128(out++,
-                      _mm_and_si128(_mm_srli_epi32(comprBlock, k * b), mask));
+
+    switch (n) {
+    case 1:  return unrolledUnpacking_N<1>(comprBlock, out, mask);
+    case 2:  return unrolledUnpacking_N<2>(comprBlock, out, mask);
+    case 3:  return unrolledUnpacking_N<3>(comprBlock, out, mask);
+    case 4:  return unrolledUnpacking_N<4>(comprBlock, out, mask);
+    case 5:  return unrolledUnpacking_N<5>(comprBlock, out, mask);
+    case 6:  return unrolledUnpacking_N<6>(comprBlock, out, mask);
+    case 7:  return unrolledUnpacking_N<7>(comprBlock, out, mask);
+    case 8:  return unrolledUnpacking_N<8>(comprBlock, out, mask);
+    case 9:  return unrolledUnpacking_N<9>(comprBlock, out, mask);
+    case 10: return unrolledUnpacking_N<10>(comprBlock, out, mask);
+    case 11: return unrolledUnpacking_N<11>(comprBlock, out, mask);
+    case 12: return unrolledUnpacking_N<12>(comprBlock, out, mask);
+    case 13: return unrolledUnpacking_N<13>(comprBlock, out, mask);
+    case 14: return unrolledUnpacking_N<14>(comprBlock, out, mask);
+    case 15: return unrolledUnpacking_N<15>(comprBlock, out, mask);
+    case 16: return unrolledUnpacking_N<16>(comprBlock, out, mask);
+    case 17: return unrolledUnpacking_N<17>(comprBlock, out, mask);
+    case 18: return unrolledUnpacking_N<18>(comprBlock, out, mask);
+    case 19: return unrolledUnpacking_N<19>(comprBlock, out, mask);
+    case 20: return unrolledUnpacking_N<20>(comprBlock, out, mask);
+    case 21: return unrolledUnpacking_N<21>(comprBlock, out, mask);
+    case 22: return unrolledUnpacking_N<22>(comprBlock, out, mask);
+    case 23: return unrolledUnpacking_N<23>(comprBlock, out, mask);
+    case 24: return unrolledUnpacking_N<24>(comprBlock, out, mask);
+    case 25: return unrolledUnpacking_N<25>(comprBlock, out, mask);
+    case 26: return unrolledUnpacking_N<26>(comprBlock, out, mask);
+    case 27: return unrolledUnpacking_N<27>(comprBlock, out, mask);
+    case 28: return unrolledUnpacking_N<28>(comprBlock, out, mask);
+    case 29: return unrolledUnpacking_N<29>(comprBlock, out, mask);
+    case 30: return unrolledUnpacking_N<30>(comprBlock, out, mask);
+    case 31: return unrolledUnpacking_N<31>(comprBlock, out, mask);
+    case 32: return unrolledUnpacking_N<32>(comprBlock, out, mask);
+    }
   }
 
   /**
